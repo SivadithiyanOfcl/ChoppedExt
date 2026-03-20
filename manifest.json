@@ -11,6 +11,7 @@
   },
   "permissions": [
     "tabCapture",
+    "tabs",
     "downloads",
     "storage",
     "activeTab"

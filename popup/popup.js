@@ -38,6 +38,19 @@ let audioBuffer = null;
 let trimmedBuffer = null;
 let zoomLevel = 1;
 
+async function getActiveTabId() {
+  const [activeTab] = await chrome.tabs.query({
+    active: true,
+    currentWindow: true
+  });
+
+  if (!activeTab?.id) {
+    throw new Error('Unable to determine the active tab to record.');
+  }
+
+  return activeTab.id;
+}
+
 function setError(message) {
   filenameError.textContent = message;
   if (message) {
@@ -88,7 +101,8 @@ recordBtn.addEventListener('click', async () => {
 
   try {
     if (state === 'idle') {
-      const started = await startRecording();
+      const activeTabId = await getActiveTabId();
+      const started = await startRecording(activeTabId);
       if (!started) {
         setError('Unable to start recording. Check the extension console for details.');
         return;
@@ -114,112 +128,7 @@ recordBtn.addEventListener('click', async () => {
         setError('Unable to resume recording.');
         return;
       }
-      updateRecordBtn('recording');
-      timerInterval = startTimer(handleTimerTick, 1000);
-      log('recording resumed from popup');
-    }
-  } catch (error) {
-    logError('record button handler failed', error);
-    setError(error.message || 'Unexpected recording error.');
-  }
-});
-
-window.addEventListener('audioRecordingStopped', async event => {
-  log('audioRecordingStopped event received', event.detail || {});
-  stopTimer(timerInterval);
-  updateRecordBtn('idle');
-  audioBuffer = await getAudioBuffer();
-  if (!audioBuffer) {
-    setError('Recording finished, but no audio data was available.');
-    return;
-  }
-  await loadWaveform(waveformDiv, audioBuffer);
-  saveBtn.disabled = false;
-  elapsedSeconds = getDuration();
-  updateTimerDisplay();
-  setTrimHandles(leftTrim, rightTrim, audioBuffer.duration);
-});
-
-window.addEventListener('audioRecordingLimitReached', () => {
-  log('audioRecordingLimitReached event received');
-  showLimitReached();
-  saveBtn.disabled = false;
-});
-
-window.addEventListener('audioRecordingError', event => {
-  const message = event.detail?.message || 'Recording failed.';
-  logError('audioRecordingError event received', event.detail);
-  stopTimer(timerInterval);
-  updateRecordBtn('idle');
-  saveBtn.disabled = !audioBuffer;
-  setError(message);
-});
-
-// --- Waveform Controls ---
-zoomInBtn.addEventListener('click', () => {
-  zoomLevel = Math.min(zoomLevel + 1, 5);
-  log('zoom in clicked', { zoomLevel });
-  updateWaveformZoom(waveformDiv, zoomLevel);
-});
-zoomOutBtn.addEventListener('click', () => {
-  zoomLevel = Math.max(zoomLevel - 1, 1);
-  log('zoom out clicked', { zoomLevel });
-  updateWaveformZoom(waveformDiv, zoomLevel);
-});
-
-// --- Cropping Sliders ---
-[leftTrim, rightTrim].forEach(slider => {
-  slider.addEventListener('input', () => {
-    log('trim slider changed', {
-      left: leftTrim.value,
-      right: rightTrim.value,
-      hasAudioBuffer: Boolean(audioBuffer)
-    });
-    if (audioBuffer) {
-      setTrimHandles(leftTrim, rightTrim, audioBuffer.duration);
-    }
-  });
-});
-
-// --- Filename Input ---
-filenameInput.addEventListener('input', () => {
-  const value = filenameInput.value.trim();
-  const valid = validateFilename(value);
-  log('filename input changed', { value, valid });
-  if (!valid) {
-    setError('Invalid filename. Use letters, numbers, dash, or underscore.');
-    saveBtn.disabled = true;
-  } else {
-    setError('');
-    if (audioBuffer) saveBtn.disabled = false;
-  }
-});
-
-// --- Save Functionality ---
-saveBtn.addEventListener('click', async () => {
-  log('save button clicked', { hasAudioBuffer: Boolean(audioBuffer) });
-  if (!audioBuffer) return;
-  const filename = filenameInput.value.trim();
-  if (!validateFilename(filename)) {
-    setError('Invalid filename.');
-    return;
-  }
-
-  try {
-    const [start, end] = getTrimPositions(leftTrim, rightTrim, audioBuffer.duration);
-    log('preparing trimmed export', { start, end, duration: audioBuffer.duration });
-    trimmedBuffer = await getTrimmedBuffer(audioBuffer, start, end);
-    const wavBlob = await exportWav(trimmedBuffer);
-    const finalFilename = getFilenameWithExtension(filename, 'wav');
-    const askLocation = askLocationToggle.checked;
-
-    log('sending download message', {
-      finalFilename,
-      askLocation,
-      blobSize: wavBlob.size
-    });
-    chrome.runtime.sendMessage({
-      action: 'download',
+@@ -223,26 +237,26 @@ saveBtn.addEventListener('click', async () => {
       blobUrl: URL.createObjectURL(wavBlob),
       filename: finalFilename,
       askLocation

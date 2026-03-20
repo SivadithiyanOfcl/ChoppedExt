@@ -10,6 +10,40 @@ let duration = 0;
 let stream = null;
 let audioContext = null;
 
+async function captureActiveTabAudio() {
+  return new Promise((resolve, reject) => {
+    chrome.tabCapture.capture(
+      { audio: true, video: false },
+      capturedStream => {
+        const runtimeError = chrome.runtime.lastError;
+        if (runtimeError) {
+          reject(new Error(runtimeError.message));
+          return;
+        }
+        if (!capturedStream) {
+          reject(new Error('chrome.tabCapture.capture returned no stream.'));
+          return;
+        }
+        resolve(capturedStream);
+      }
+    );
+  });
+}
+
+async function captureTargetTabAudio(targetTabId) {
+  const streamId = await chrome.tabCapture.getMediaStreamId({ targetTabId });
+
+  return navigator.mediaDevices.getUserMedia({
+    audio: {
+      mandatory: {
+        chromeMediaSource: 'tab',
+        chromeMediaSourceId: streamId
+      }
+    },
+    video: false
+  });
+}
+
 function log(message, details) {
   if (details !== undefined) {
     console.log(`${LOG_PREFIX} ${message}`, details);
@@ -60,8 +94,8 @@ export function getRecordingState() {
   return recordingState;
 }
 
-export async function startRecording() {
-  log('startRecording invoked', { recordingState });
+export async function startRecording(targetTabId = null) {
+  log('startRecording invoked', { recordingState, targetTabId });
   if (recordingState !== 'idle') {
     log('startRecording ignored because recorder is not idle');
     return false;
@@ -71,24 +105,13 @@ export async function startRecording() {
     audioBuffer = null;
     duration = 0;
 
-    log('requesting tab capture for the active tab');
-    stream = await new Promise((resolve, reject) => {
-      chrome.tabCapture.capture(
-        { audio: true, video: false },
-        capturedStream => {
-          const runtimeError = chrome.runtime.lastError;
-          if (runtimeError) {
-            reject(new Error(runtimeError.message));
-            return;
-          }
-          if (!capturedStream) {
-            reject(new Error('chrome.tabCapture.capture returned no stream.'));
-            return;
-          }
-          resolve(capturedStream);
-        }
-      );
+    log('requesting tab capture stream', {
+      mode: targetTabId === null ? 'active-tab' : 'target-tab',
+      targetTabId
     });
+    stream = targetTabId === null
+      ? await captureActiveTabAudio()
+      : await captureTargetTabAudio(targetTabId);
 
     log('tab capture stream acquired', {
       audioTracks: stream.getAudioTracks().length,
@@ -114,78 +137,7 @@ export async function startRecording() {
         audioChunks.push(event.data);
       }
     };
-
-    mediaRecorder.onpause = () => {
-      log('MediaRecorder paused');
-    };
-
-    mediaRecorder.onresume = () => {
-      log('MediaRecorder resumed');
-    };
-
-    mediaRecorder.onerror = event => {
-      logError('MediaRecorder error event fired', event.error || event);
-      dispatchRecorderEvent('audioRecordingError', {
-        message: event.error?.message || 'MediaRecorder error event fired.'
-      });
-    };
-
-    mediaRecorder.onstop = async () => {
-      log('MediaRecorder stopped', { chunkCount: audioChunks.length });
-      try {
-        const blob = new Blob(audioChunks, { type: 'audio/webm' });
-        log('created recording blob', { size: blob.size, type: blob.type });
-
-        const arrayBuffer = await blob.arrayBuffer();
-        audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-        duration = audioBuffer.duration;
-        log('decoded audio buffer', {
-          duration,
-          sampleRate: audioBuffer.sampleRate,
-          channels: audioBuffer.numberOfChannels
-        });
-        dispatchRecorderEvent('audioRecordingStopped', { duration });
-      } catch (error) {
-        logError('failed to finalize recording', error);
-        dispatchRecorderEvent('audioRecordingError', {
-          message: error.message || 'Failed to finalize recording.'
-        });
-      } finally {
-        cleanupRecorderResources();
-        setRecordingState('idle');
-      }
-    };
-
-    mediaRecorder.start();
-    return true;
-  } catch (error) {
-    logError('startRecording failed', error);
-    cleanupRecorderResources();
-    setRecordingState('idle');
-    dispatchRecorderEvent('audioRecordingError', {
-      message: error.message || 'Unable to start recording.'
-    });
-    return false;
-  }
-}
-
-export function pauseRecording() {
-  log('pauseRecording invoked', { recordingState });
-  if (mediaRecorder && recordingState === 'recording') {
-    mediaRecorder.pause();
-    setRecordingState('paused');
-    return true;
-  }
-  log('pauseRecording ignored because recorder is not actively recording');
-  return false;
-}
-
-export function resumeRecording() {
-  log('resumeRecording invoked', { recordingState });
-  if (mediaRecorder && recordingState === 'paused') {
-    mediaRecorder.resume();
-    setRecordingState('recording');
-    return true;
+@@ -189,26 +212,26 @@ export function resumeRecording() {
   }
   log('resumeRecording ignored because recorder is not paused');
   return false;

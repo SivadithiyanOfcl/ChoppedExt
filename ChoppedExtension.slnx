@@ -1,0 +1,29 @@
+<Solution>
+  <Folder Name="/src/">
+    <File Path="manifest.json" />
+  </Folder>
+  <Folder Name="/src/assets/" />
+  <Folder Name="/src/assets/icons/" />
+  <Folder Name="/src/audio/">
+    <File Path="audioProcessor.js" />
+    <File Path="recorder.js" />
+  </Folder>
+  <Folder Name="/src/background/">
+    <File Path="background.js" />
+  </Folder>
+  <Folder Name="/src/libs/">
+    <File Path="wavesurfer.min.js" />
+  </Folder>
+  <Folder Name="/src/popup/">
+    <File Path="popup.css" />
+    <File Path="popup.html" />
+    <File Path="popup.js" />
+  </Folder>
+  <Folder Name="/src/utils/">
+    <File Path="fileUtils.js" />
+    <File Path="timerUtils.js" />
+  </Folder>
+  <Folder Name="/src/waveform/">
+    <File Path="waveformViewer.js" />
+  </Folder>
+</Solution>

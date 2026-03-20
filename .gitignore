@@ -1,0 +1,36 @@
+# Node modules and dependencies
+node_modules/
+libs/
+
+# Build output
+dist/
+build/
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment and secrets
+.env
+*.env
+*.key
+*.pem
+*.p12
+*.crt
+*.cert
+
+# VS/IDE settings
+.vscode/
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Misc
+*.db
+*.sqlite
+*.cache

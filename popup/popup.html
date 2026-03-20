@@ -1,0 +1,44 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>ChoppedExtension</title>
+    <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+    <div class="container">
+        <div class="record-section">
+            <button id="record-btn" class="record-btn idle">
+                <span id="record-icon"></span>
+            </button>
+            <div id="timer" class="timer">00:00 / 10:00</div>
+        </div>
+        <div id="waveform-container" class="waveform-container">
+            <div id="waveform"></div>
+            <div class="waveform-controls">
+                <button id="zoom-in" class="zoom-btn">+</button>
+                <button id="zoom-out" class="zoom-btn">−</button>
+            </div>
+        </div>
+        <div class="crop-section">
+            <label>Trim:</label>
+            <input type="range" id="left-trim" min="0" max="100" value="0">
+            <input type="range" id="right-trim" min="0" max="100" value="100">
+        </div>
+        <div class="filename-section">
+            <label for="filename-input">Filename:</label>
+            <input type="text" id="filename-input" placeholder="meeting-recording" maxlength="50">
+            <span id="filename-error" class="error"></span>
+        </div>
+        <div class="save-section">
+            <button id="save-btn" class="save-btn" disabled>Save</button>
+            <label class="toggle-label">
+                <input type="checkbox" id="ask-location-toggle">
+                Ask where to save each time
+            </label>
+        </div>
+    </div>
+    <script src="../libs/wavesurfer.min.js"></script>
+    <script type="module" src="popup.js"></script>
+</body>
+</html>
